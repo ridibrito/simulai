@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -29,104 +29,42 @@ import {
 } from "lucide-react";
 import type { Exam, ExamAttempt } from "@shared/schema";
 
-const mockExams = [
-  {
-    id: "1",
-    title: "Simulado TRF 5ª Região - Completo",
-    description: "Simulado com questões de todas as áreas",
-    questionCount: 50,
-    timeLimit: 180,
-    difficulty: "medium",
-    status: "ready",
-    createdAt: "2024-01-15",
-  },
-  {
-    id: "2",
-    title: "Direito Administrativo - Básico",
-    description: "Questões fundamentais de direito administrativo",
-    questionCount: 20,
-    timeLimit: 60,
-    difficulty: "easy",
-    status: "ready",
-    createdAt: "2024-01-14",
-  },
-  {
-    id: "3",
-    title: "Português para Concursos",
-    description: "Foco em interpretação de texto e gramática",
-    questionCount: 30,
-    timeLimit: 90,
-    difficulty: "medium",
-    status: "ready",
-    createdAt: "2024-01-13",
-  },
-  {
-    id: "4",
-    title: "Matemática Financeira Avançada",
-    description: "Questões de nível avançado",
-    questionCount: 25,
-    timeLimit: 75,
-    difficulty: "hard",
-    status: "ready",
-    createdAt: "2024-01-12",
-  },
-];
+interface ExamWithDetails extends Exam {
+  subjectNames?: string[];
+}
 
-const mockAttempts = [
-  {
-    id: "1",
-    examId: "1",
-    examTitle: "Simulado TRF 5ª Região - Completo",
-    completedAt: "2024-01-15T14:30:00",
-    score: 78,
-    correctCount: 39,
-    incorrectCount: 11,
-    timeSpent: 165,
-    status: "completed",
-  },
-  {
-    id: "2",
-    examId: "2",
-    examTitle: "Direito Administrativo - Básico",
-    completedAt: "2024-01-14T10:00:00",
-    score: 85,
-    correctCount: 17,
-    incorrectCount: 3,
-    timeSpent: 45,
-    status: "completed",
-  },
-  {
-    id: "3",
-    examId: "3",
-    examTitle: "Português para Concursos",
-    completedAt: "2024-01-13T16:45:00",
-    score: 72,
-    correctCount: 22,
-    incorrectCount: 8,
-    timeSpent: 80,
-    status: "completed",
-  },
-];
+interface AttemptWithExam extends ExamAttempt {
+  exam?: Exam;
+}
 
 export default function Exams() {
   const [searchQuery, setSearchQuery] = useState("");
   const [difficultyFilter, setDifficultyFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("available");
 
-  const getDifficultyBadge = (difficulty: string) => {
+  const { data: exams = [], isLoading: examsLoading } = useQuery<ExamWithDetails[]>({
+    queryKey: ["/api/exams"],
+  });
+
+  const { data: attempts = [], isLoading: attemptsLoading } = useQuery<AttemptWithExam[]>({
+    queryKey: ["/api/attempts"],
+  });
+
+  const getDifficultyBadge = (difficulty: string | null) => {
     switch (difficulty) {
       case "easy":
-        return <Badge variant="secondary" className="bg-chart-2/10 text-chart-2 border-chart-2/20">Fácil</Badge>;
+        return <Badge variant="secondary" className="bg-chart-2/10 text-chart-2 border-chart-2/20">Facil</Badge>;
       case "medium":
-        return <Badge variant="secondary" className="bg-chart-4/10 text-chart-4 border-chart-4/20">Médio</Badge>;
+        return <Badge variant="secondary" className="bg-chart-4/10 text-chart-4 border-chart-4/20">Medio</Badge>;
       case "hard":
-        return <Badge variant="secondary" className="bg-destructive/10 text-destructive border-destructive/20">Difícil</Badge>;
+        return <Badge variant="secondary" className="bg-destructive/10 text-destructive border-destructive/20">Dificil</Badge>;
       default:
-        return <Badge variant="secondary">-</Badge>;
+        return <Badge variant="secondary">Misto</Badge>;
     }
   };
 
-  const formatTime = (minutes: number) => {
+  const formatTime = (minutes: number | null) => {
+    if (!minutes) return "-";
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     if (hours > 0) {
@@ -135,11 +73,50 @@ export default function Exams() {
     return `${mins}min`;
   };
 
-  const filteredExams = mockExams.filter((exam) => {
+  const formatTimeSpent = (seconds: number | null) => {
+    if (!seconds) return "-";
+    const minutes = Math.floor(seconds / 60);
+    return formatTime(minutes);
+  };
+
+  const filteredExams = exams.filter((exam) => {
     const matchesSearch = exam.title.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesDifficulty = difficultyFilter === "all" || exam.difficulty === difficultyFilter;
     return matchesSearch && matchesDifficulty;
   });
+
+  const completedAttempts = attempts.filter(a => a.status === "completed");
+
+  const getExamTitle = (attempt: AttemptWithExam) => {
+    if (attempt.exam?.title) return attempt.exam.title;
+    const exam = exams.find(e => e.id === attempt.examId);
+    return exam?.title || "Simulado";
+  };
+
+  if (examsLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-64 mt-2" />
+          </div>
+          <Skeleton className="h-10 w-36" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i}>
+              <CardContent className="p-6">
+                <Skeleton className="h-6 w-3/4 mb-2" />
+                <Skeleton className="h-4 w-full mb-4" />
+                <Skeleton className="h-10 w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -161,10 +138,10 @@ export default function Exams() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="available" data-testid="tab-available">
-            Disponíveis
+            Disponiveis ({exams.length})
           </TabsTrigger>
           <TabsTrigger value="history" data-testid="tab-history">
-            Histórico
+            Historico ({completedAttempts.length})
           </TabsTrigger>
         </TabsList>
 
@@ -186,9 +163,9 @@ export default function Exams() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas</SelectItem>
-              <SelectItem value="easy">Fácil</SelectItem>
-              <SelectItem value="medium">Médio</SelectItem>
-              <SelectItem value="hard">Difícil</SelectItem>
+              <SelectItem value="easy">Facil</SelectItem>
+              <SelectItem value="medium">Medio</SelectItem>
+              <SelectItem value="hard">Dificil</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -205,7 +182,7 @@ export default function Exams() {
                       </div>
                       <div>
                         <h3 className="font-semibold">{exam.title}</h3>
-                        <p className="text-sm text-muted-foreground">{exam.description}</p>
+                        <p className="text-sm text-muted-foreground">{exam.description || "Simulado personalizado"}</p>
                       </div>
                     </div>
                     {getDifficultyBadge(exam.difficulty)}
@@ -214,7 +191,7 @@ export default function Exams() {
                   <div className="flex items-center gap-6 mb-4 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <BookOpen className="h-4 w-4" />
-                      <span>{exam.questionCount} questões</span>
+                      <span>{exam.questionCount} questoes</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <Clock className="h-4 w-4" />
@@ -246,7 +223,9 @@ export default function Exams() {
                 <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold mb-2">Nenhum simulado encontrado</h3>
                 <p className="text-muted-foreground mb-4">
-                  Não encontramos simulados com os filtros selecionados.
+                  {exams.length === 0 
+                    ? "Voce ainda nao criou nenhum simulado. Que tal comecar agora?"
+                    : "Nao encontramos simulados com os filtros selecionados."}
                 </p>
                 <Link href="/exams/new">
                   <Button className="gap-2">
@@ -261,49 +240,49 @@ export default function Exams() {
 
         <TabsContent value="history" className="mt-6">
           <div className="space-y-4">
-            {mockAttempts.map((attempt) => (
+            {completedAttempts.map((attempt) => (
               <Card key={attempt.id} className="hover-elevate" data-testid={`card-attempt-${attempt.id}`}>
                 <CardContent className="p-6">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div className="flex items-center gap-3">
                       <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                        {attempt.score >= 70 ? (
+                        {(attempt.score || 0) >= 70 ? (
                           <CheckCircle2 className="h-5 w-5 text-chart-2" />
                         ) : (
                           <XCircle className="h-5 w-5 text-destructive" />
                         )}
                       </div>
                       <div>
-                        <h3 className="font-semibold">{attempt.examTitle}</h3>
+                        <h3 className="font-semibold">{getExamTitle(attempt)}</h3>
                         <p className="text-sm text-muted-foreground">
-                          {new Date(attempt.completedAt).toLocaleDateString("pt-BR", {
+                          {attempt.completedAt ? new Date(attempt.completedAt).toLocaleDateString("pt-BR", {
                             day: "2-digit",
                             month: "long",
                             year: "numeric",
                             hour: "2-digit",
                             minute: "2-digit",
-                          })}
+                          }) : "-"}
                         </p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-6">
                       <div className="text-center">
-                        <div className="text-2xl font-bold" style={{ color: attempt.score >= 70 ? "hsl(var(--chart-2))" : "hsl(var(--destructive))" }}>
-                          {attempt.score}%
+                        <div className="text-2xl font-bold" style={{ color: (attempt.score || 0) >= 70 ? "hsl(var(--chart-2))" : "hsl(var(--destructive))" }}>
+                          {attempt.score ? `${Math.round(attempt.score)}%` : "-"}
                         </div>
                         <div className="text-xs text-muted-foreground">Nota</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-lg font-semibold text-chart-2">{attempt.correctCount}</div>
+                        <div className="text-lg font-semibold text-chart-2">{attempt.correctCount || 0}</div>
                         <div className="text-xs text-muted-foreground">Acertos</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-lg font-semibold text-destructive">{attempt.incorrectCount}</div>
+                        <div className="text-lg font-semibold text-destructive">{attempt.incorrectCount || 0}</div>
                         <div className="text-xs text-muted-foreground">Erros</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-lg font-semibold">{formatTime(attempt.timeSpent)}</div>
+                        <div className="text-lg font-semibold">{formatTimeSpent(attempt.timeSpent)}</div>
                         <div className="text-xs text-muted-foreground">Tempo</div>
                       </div>
                     </div>
@@ -320,20 +299,18 @@ export default function Exams() {
             ))}
           </div>
 
-          {mockAttempts.length === 0 && (
+          {completedAttempts.length === 0 && (
             <Card className="p-12" data-testid="empty-state-history">
               <div className="text-center">
                 <Target className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold mb-2">Nenhum simulado realizado</h3>
                 <p className="text-muted-foreground mb-4">
-                  Você ainda não completou nenhum simulado. Que tal começar agora?
+                  Voce ainda nao completou nenhum simulado. Que tal comecar agora?
                 </p>
-                <Link href="/exams">
-                  <Button className="gap-2">
-                    <Play className="h-4 w-4" />
-                    Ver Simulados Disponíveis
-                  </Button>
-                </Link>
+                <Button variant="outline" onClick={() => setActiveTab("available")} className="gap-2">
+                  <Play className="h-4 w-4" />
+                  Ver Simulados Disponiveis
+                </Button>
               </div>
             </Card>
           )}
