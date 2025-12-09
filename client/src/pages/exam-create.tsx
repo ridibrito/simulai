@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +39,8 @@ import {
   ArrowLeft,
   Check,
   Loader2,
+  Lock,
+  CreditCard,
 } from "lucide-react";
 
 const examSchema = z.object({
@@ -63,12 +65,23 @@ const mockSubjects = [
   { id: "8", name: "Direito Penal", icon: "🔒", color: "chart-3" },
 ];
 
+interface SubscriptionLimits {
+  canCreate: boolean;
+  remaining: number;
+  limit: number;
+  used: number;
+}
+
 export default function ExamCreate() {
   const [step, setStep] = useState(1);
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const { data: limits, isLoading: limitsLoading } = useQuery<SubscriptionLimits>({
+    queryKey: ["/api/subscription/can-create-exam"],
+  });
 
   const form = useForm<ExamFormData>({
     resolver: zodResolver(examSchema),
@@ -92,14 +105,25 @@ export default function ExamCreate() {
         description: "Seu simulado foi gerado com sucesso.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/exams"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subscription/can-create-exam"] });
       navigate("/exams");
     },
-    onError: () => {
-      toast({
-        title: "Erro ao criar",
-        description: "Não foi possível criar o simulado. Tente novamente.",
-        variant: "destructive",
-      });
+    onError: (error: any) => {
+      const message = error?.message || "Não foi possível criar o simulado. Tente novamente.";
+      if (message.includes("Limite")) {
+        toast({
+          title: "Limite atingido",
+          description: "Você atingiu o limite do plano gratuito. Assine para criar mais simulados.",
+          variant: "destructive",
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/subscription/can-create-exam"] });
+      } else {
+        toast({
+          title: "Erro ao criar",
+          description: message,
+          variant: "destructive",
+        });
+      }
     },
   });
 
@@ -130,6 +154,59 @@ export default function ExamCreate() {
   const onSubmit = (data: ExamFormData) => {
     createExamMutation.mutate(data);
   };
+
+  if (limitsLoading) {
+    return (
+      <div className="max-w-3xl mx-auto space-y-6">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
+
+  if (limits && !limits.canCreate) {
+    return (
+      <div className="max-w-3xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold" data-testid="text-create-exam-title">
+            Criar Novo Simulado
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Configure seu simulado personalizado em poucos passos.
+          </p>
+        </div>
+
+        <Card className="border-destructive/50" data-testid="card-limit-reached">
+          <CardContent className="p-8 text-center">
+            <div className="flex justify-center mb-4">
+              <div className="h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center">
+                <Lock className="h-8 w-8 text-destructive" />
+              </div>
+            </div>
+            <h2 className="text-xl font-semibold mb-2">Limite de Simulados Atingido</h2>
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+              Voce ja criou {limits.used} de {limits.limit} simulado(s) permitido(s) no plano gratuito. 
+              Assine um plano para criar simulados ilimitados.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Link href="/subscription">
+                <Button className="gap-2" data-testid="button-upgrade">
+                  <CreditCard className="h-4 w-4" />
+                  Ver Planos
+                </Button>
+              </Link>
+              <Link href="/exams">
+                <Button variant="outline" data-testid="button-view-exams">
+                  Ver Meus Simulados
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
