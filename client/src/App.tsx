@@ -92,7 +92,7 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="light" storageKey="concurseia-theme">
+      <ThemeProvider defaultTheme="light" storageKey="simulai-theme">
         <TooltipProvider>
           <Toaster />
           <Router />

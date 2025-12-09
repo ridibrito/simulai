@@ -70,7 +70,7 @@ export default function Landing() {
             <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary">
               <Brain className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold" data-testid="text-logo">ConcurseIA</span>
+            <span className="text-xl font-bold" data-testid="text-logo">Simulai</span>
           </div>
           <nav className="hidden md:flex items-center gap-6">
             <a href="#features" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
@@ -333,7 +333,7 @@ export default function Landing() {
               <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
                 <Brain className="h-4 w-4 text-primary-foreground" />
               </div>
-              <span className="font-semibold">ConcurseIA</span>
+              <span className="font-semibold">Simulai</span>
             </div>
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
               <a href="#" className="hover:text-foreground transition-colors">Termos de Uso</a>
