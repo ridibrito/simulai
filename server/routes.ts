@@ -117,11 +117,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  app.get("/api/materials/:id", isAuthenticated, async (req, res) => {
+  app.get("/api/materials/:id", isAuthenticated, async (req: any, res) => {
     try {
       const material = await storage.getMaterial(req.params.id);
       if (!material) {
         return res.status(404).json({ message: "Material not found" });
+      }
+      if (material.userId !== req.user.claims.sub) {
+        return res.status(403).json({ message: "Forbidden" });
       }
       res.json(material);
     } catch (error) {
@@ -172,6 +175,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!material || !material.content) {
         return res.status(404).json({ message: "Material not found or has no content" });
       }
+      if (material.userId !== req.user.claims.sub) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
 
       const { questionCount = 5, difficulty = "medium" } = req.body;
       const subject = material.subjectId ? await storage.getSubject(material.subjectId) : null;
@@ -214,11 +220,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  app.get("/api/exams/:id", isAuthenticated, async (req, res) => {
+  app.get("/api/exams/:id", isAuthenticated, async (req: any, res) => {
     try {
       const exam = await storage.getExam(req.params.id);
       if (!exam) {
         return res.status(404).json({ message: "Exam not found" });
+      }
+      if (exam.userId !== req.user.claims.sub) {
+        return res.status(403).json({ message: "Forbidden" });
       }
       res.json(exam);
     } catch (error) {
@@ -227,8 +236,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  app.get("/api/exams/:id/questions", isAuthenticated, async (req, res) => {
+  app.get("/api/exams/:id/questions", isAuthenticated, async (req: any, res) => {
     try {
+      const exam = await storage.getExam(req.params.id);
+      if (!exam) {
+        return res.status(404).json({ message: "Exam not found" });
+      }
+      if (exam.userId !== req.user.claims.sub) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
       const examQuestions = await storage.getExamQuestions(req.params.id);
       res.json(examQuestions);
     } catch (error) {
@@ -249,8 +265,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  app.post("/api/exams/:id/add-questions", isAuthenticated, async (req, res) => {
+  app.post("/api/exams/:id/add-questions", isAuthenticated, async (req: any, res) => {
     try {
+      const exam = await storage.getExam(req.params.id);
+      if (!exam) {
+        return res.status(404).json({ message: "Exam not found" });
+      }
+      if (exam.userId !== req.user.claims.sub) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
       const { questionIds } = req.body;
       if (!Array.isArray(questionIds)) {
         return res.status(400).json({ message: "questionIds must be an array" });
@@ -306,11 +330,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  app.get("/api/attempts/:id", isAuthenticated, async (req, res) => {
+  app.get("/api/attempts/:id", isAuthenticated, async (req: any, res) => {
     try {
       const attempt = await storage.getExamAttempt(req.params.id);
       if (!attempt) {
         return res.status(404).json({ message: "Attempt not found" });
+      }
+      if (attempt.userId !== req.user.claims.sub) {
+        return res.status(403).json({ message: "Forbidden" });
       }
       res.json(attempt);
     } catch (error) {
@@ -319,8 +346,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  app.get("/api/attempts/:id/answers", isAuthenticated, async (req, res) => {
+  app.get("/api/attempts/:id/answers", isAuthenticated, async (req: any, res) => {
     try {
+      const attempt = await storage.getExamAttempt(req.params.id);
+      if (!attempt) {
+        return res.status(404).json({ message: "Attempt not found" });
+      }
+      if (attempt.userId !== req.user.claims.sub) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
       const answers = await storage.getQuestionAnswers(req.params.id);
       res.json(answers);
     } catch (error) {
@@ -343,6 +377,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/attempts/:id/answer", isAuthenticated, async (req: any, res) => {
     try {
+      const attempt = await storage.getExamAttempt(req.params.id);
+      if (!attempt) {
+        return res.status(404).json({ message: "Attempt not found" });
+      }
+      if (attempt.userId !== req.user.claims.sub) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
       const { questionId, userAnswer } = req.body;
       const question = await storage.getQuestion(questionId);
       if (!question) {
@@ -388,6 +430,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const attempt = await storage.getExamAttempt(req.params.id);
       if (!attempt) {
         return res.status(404).json({ message: "Attempt not found" });
+      }
+      if (attempt.userId !== req.user.claims.sub) {
+        return res.status(403).json({ message: "Forbidden" });
       }
 
       const answers = await storage.getQuestionAnswers(req.params.id);
