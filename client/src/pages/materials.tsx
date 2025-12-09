@@ -28,36 +28,7 @@ import {
   Loader2,
   CheckCircle2,
 } from "lucide-react";
-
-const mockMaterials = [
-  {
-    id: "1",
-    title: "Apostila Direito Constitucional",
-    type: "pdf",
-    fileName: "direito_constitucional.pdf",
-    summary: "Este material aborda os princípios fundamentais da Constituição Federal, incluindo direitos e garantias fundamentais, organização do Estado e dos Poderes.",
-    createdAt: "2024-01-15",
-    hasSummary: true,
-  },
-  {
-    id: "2",
-    title: "Resumo de Português",
-    type: "pdf",
-    fileName: "portugues_resumo.pdf",
-    summary: null,
-    createdAt: "2024-01-14",
-    hasSummary: false,
-  },
-  {
-    id: "3",
-    title: "Matemática Financeira - Slides",
-    type: "pdf",
-    fileName: "matematica_slides.pdf",
-    summary: "Coletânea de slides sobre juros simples, juros compostos, descontos e séries de pagamentos.",
-    createdAt: "2024-01-13",
-    hasSummary: true,
-  },
-];
+import type { Material } from "@shared/schema";
 
 export default function Materials() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -68,6 +39,10 @@ export default function Materials() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const { data: materials = [], isLoading } = useQuery<Material[]>({
+    queryKey: ["/api/materials"],
+  });
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -156,9 +131,17 @@ export default function Materials() {
     },
   });
 
-  const filteredMaterials = mockMaterials.filter((material) =>
+  const filteredMaterials = materials.filter((material) =>
     material.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -307,7 +290,7 @@ export default function Materials() {
                 </div>
               </div>
 
-              {material.hasSummary && material.summary && (
+              {!!material.summary && (
                 <div className="p-3 rounded-lg bg-muted/50 mb-4">
                   <div className="flex items-center gap-2 mb-2">
                     <Sparkles className="h-4 w-4 text-primary" />
@@ -320,7 +303,7 @@ export default function Materials() {
               )}
 
               <div className="flex gap-2">
-                {material.hasSummary ? (
+                {!!material.summary ? (
                   <Button variant="outline" className="flex-1 gap-2" data-testid={`button-view-summary-${material.id}`}>
                     <Eye className="h-4 w-4" />
                     Ver Resumo

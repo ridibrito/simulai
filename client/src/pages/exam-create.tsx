@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ComponentType } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -41,7 +41,16 @@ import {
   Loader2,
   Lock,
   CreditCard,
+  PenLine,
+  Calculator,
+  Scale,
+  ClipboardList,
+  Monitor,
+  Brain,
+  Newspaper,
+  ShieldAlert,
 } from "lucide-react";
+import type { Subject } from "@shared/schema";
 
 const examSchema = z.object({
   title: z.string().min(3, "Título deve ter pelo menos 3 caracteres"),
@@ -54,16 +63,16 @@ const examSchema = z.object({
 
 type ExamFormData = z.infer<typeof examSchema>;
 
-const mockSubjects = [
-  { id: "1", name: "Português", icon: "📝", color: "chart-1" },
-  { id: "2", name: "Matemática", icon: "🔢", color: "chart-2" },
-  { id: "3", name: "Direito Constitucional", icon: "⚖️", color: "chart-3" },
-  { id: "4", name: "Direito Administrativo", icon: "📋", color: "chart-4" },
-  { id: "5", name: "Informática", icon: "💻", color: "chart-5" },
-  { id: "6", name: "Raciocínio Lógico", icon: "🧠", color: "chart-1" },
-  { id: "7", name: "Atualidades", icon: "📰", color: "chart-2" },
-  { id: "8", name: "Direito Penal", icon: "🔒", color: "chart-3" },
-];
+const subjectIcons: Record<string, ComponentType<{ className?: string }>> = {
+  "Português": PenLine,
+  "Matemática": Calculator,
+  "Direito Constitucional": Scale,
+  "Direito Administrativo": ClipboardList,
+  "Informática": Monitor,
+  "Raciocínio Lógico": Brain,
+  "Atualidades": Newspaper,
+  "Direito Penal": ShieldAlert,
+};
 
 interface SubscriptionLimits {
   canCreate: boolean;
@@ -81,6 +90,10 @@ export default function ExamCreate() {
 
   const { data: limits, isLoading: limitsLoading } = useQuery<SubscriptionLimits>({
     queryKey: ["/api/subscription/can-create-exam"],
+  });
+
+  const { data: subjects = [], isLoading: subjectsLoading } = useQuery<Subject[]>({
+    queryKey: ["/api/subjects"],
   });
 
   const form = useForm<ExamFormData>({
@@ -155,7 +168,7 @@ export default function ExamCreate() {
     createExamMutation.mutate(data);
   };
 
-  if (limitsLoading) {
+  if (limitsLoading || subjectsLoading) {
     return (
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="flex items-center justify-center py-12">
@@ -257,26 +270,31 @@ export default function ExamCreate() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {mockSubjects.map((subject) => (
-                    <div
-                      key={subject.id}
-                      onClick={() => handleSubjectToggle(subject.id)}
-                      className={`p-4 rounded-lg border cursor-pointer transition-all hover-elevate ${
-                        selectedSubjects.includes(subject.id)
-                          ? "border-primary bg-primary/5"
-                          : "border-border"
-                      }`}
-                      data-testid={`subject-${subject.id}`}
-                    >
-                      <div className="text-center">
-                        <div className="text-2xl mb-2">{subject.icon}</div>
-                        <div className="text-sm font-medium">{subject.name}</div>
-                        {selectedSubjects.includes(subject.id) && (
-                          <Check className="h-4 w-4 text-primary mx-auto mt-2" />
-                        )}
+                  {subjects.map((subject) => {
+                    const IconComponent = subjectIcons[subject.name] || BookOpen;
+                    return (
+                      <div
+                        key={subject.id}
+                        onClick={() => handleSubjectToggle(subject.id)}
+                        className={`p-4 rounded-lg border cursor-pointer transition-all hover-elevate ${
+                          selectedSubjects.includes(subject.id)
+                            ? "border-primary bg-primary/5"
+                            : "border-border"
+                        }`}
+                        data-testid={`subject-${subject.id}`}
+                      >
+                        <div className="text-center">
+                          <div className="flex justify-center mb-2">
+                            <IconComponent className="h-6 w-6 text-muted-foreground" />
+                          </div>
+                          <div className="text-sm font-medium">{subject.name}</div>
+                          {selectedSubjects.includes(subject.id) && (
+                            <Check className="h-4 w-4 text-primary mx-auto mt-2" />
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {selectedSubjects.length > 0 && (
@@ -284,12 +302,15 @@ export default function ExamCreate() {
                     <p className="text-sm font-medium mb-2">Áreas selecionadas:</p>
                     <div className="flex flex-wrap gap-2">
                       {selectedSubjects.map((id) => {
-                        const subject = mockSubjects.find((s) => s.id === id);
-                        return subject ? (
-                          <Badge key={id} variant="secondary">
-                            {subject.icon} {subject.name}
+                        const subject = subjects.find((s) => s.id === id);
+                        if (!subject) return null;
+                        const IconComponent = subjectIcons[subject.name] || BookOpen;
+                        return (
+                          <Badge key={id} variant="secondary" className="gap-1">
+                            <IconComponent className="h-3 w-3" />
+                            {subject.name}
                           </Badge>
-                        ) : null;
+                        );
                       })}
                     </div>
                   </div>
@@ -461,12 +482,15 @@ export default function ExamCreate() {
                     <h4 className="font-medium mb-3">Áreas Selecionadas</h4>
                     <div className="flex flex-wrap gap-2">
                       {selectedSubjects.map((id) => {
-                        const subject = mockSubjects.find((s) => s.id === id);
-                        return subject ? (
-                          <Badge key={id} variant="secondary">
-                            {subject.icon} {subject.name}
+                        const subject = subjects.find((s) => s.id === id);
+                        if (!subject) return null;
+                        const IconComponent = subjectIcons[subject.name] || BookOpen;
+                        return (
+                          <Badge key={id} variant="secondary" className="gap-1">
+                            <IconComponent className="h-3 w-3" />
+                            {subject.name}
                           </Badge>
-                        ) : null;
+                        );
                       })}
                     </div>
                   </div>
