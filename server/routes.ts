@@ -16,9 +16,23 @@ import {
   summarizeMaterial,
   explainQuestion,
 } from "./gemini";
+import {
+  stripe,
+  ensureStripeProductsExist,
+  getMonthlyPriceId,
+  getAnnualPriceId,
+  SUBSCRIPTION_PLANS,
+} from "./stripe";
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
   await setupAuth(app);
+  
+  // Initialize Stripe products and prices
+  try {
+    await ensureStripeProductsExist();
+  } catch (error) {
+    console.error("Failed to initialize Stripe products:", error);
+  }
 
   app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
     try {
@@ -256,6 +270,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/exams", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+
+      // Check subscription limits for free tier (paid tiers have unlimited)
+      // Also treat legacy "pro" tier as paid
+      const isPaidTier = user?.subscriptionTier === "monthly" || user?.subscriptionTier === "annual" || user?.subscriptionTier === "pro";
+      if (!isPaidTier) {
+        const exams = await storage.getExams(userId);
+        if (exams.length >= 1) {
+          return res.status(403).json({ 
+            message: "Limite de simulados atingido. Assine um plano para criar mais.",
+            limitReached: true,
+          });
+        }
+      }
+
       const data = insertExamSchema.parse({ ...req.body, userId });
       const exam = await storage.createExam(data);
       res.json(exam);
@@ -538,6 +567,250 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (error) {
       console.error("Error marking recommendation read:", error);
       res.status(500).json({ message: "Failed to mark recommendation read" });
+    }
+  });
+
+  // Stripe endpoints
+  app.get("/api/subscription/plans", async (_req, res) => {
+    try {
+      res.json({
+        free: {
+          name: "Gratuito",
+          price: 0,
+          priceFormatted: "R$ 0",
+          simuladosLimit: 1,
+          features: [
+            "1 simulado gratuito",
+            "Acesso a questões de exemplo",
+            "Estatísticas básicas",
+          ],
+        },
+        monthly: {
+          name: "Mensal",
+          price: 3900,
+          priceFormatted: "R$ 39/mês",
+          simuladosLimit: -1,
+          priceId: getMonthlyPriceId(),
+          features: [
+            "Simulados ilimitados",
+            "Questões geradas por IA",
+            "Avaliação de redações por IA",
+            "Recomendações personalizadas",
+            "Estatísticas avançadas",
+          ],
+        },
+        annual: {
+          name: "Anual",
+          price: 22800,
+          priceFormatted: "R$ 19/mês (cobrado anualmente)",
+          simuladosLimit: -1,
+          priceId: getAnnualPriceId(),
+          savings: "Economize R$ 240/ano",
+          features: [
+            "Simulados ilimitados",
+            "Questões geradas por IA",
+            "Avaliação de redações por IA",
+            "Recomendações personalizadas",
+            "Estatísticas avançadas",
+            "Suporte prioritário",
+          ],
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching plans:", error);
+      res.status(500).json({ message: "Failed to fetch plans" });
+    }
+  });
+
+  app.post("/api/subscription/create-checkout", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      const { planType } = req.body;
+
+      if (!planType || !["monthly", "annual"].includes(planType)) {
+        return res.status(400).json({ message: "Invalid plan type" });
+      }
+
+      const priceId = planType === "monthly" ? getMonthlyPriceId() : getAnnualPriceId();
+      if (!priceId) {
+        return res.status(500).json({ message: "Stripe prices not initialized" });
+      }
+
+      // Get or create Stripe customer
+      let customerId = user?.stripeCustomerId;
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: user?.email || undefined,
+          name: `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || undefined,
+          metadata: { userId },
+        });
+        customerId = customer.id;
+        await storage.updateUser(userId, { stripeCustomerId: customerId });
+      }
+
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+        : process.env.REPLIT_DOMAINS
+          ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
+          : "http://localhost:5000";
+
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        mode: "subscription",
+        payment_method_types: ["card"],
+        line_items: [{ price: priceId, quantity: 1 }],
+        success_url: `${baseUrl}/subscription?success=true`,
+        cancel_url: `${baseUrl}/subscription?canceled=true`,
+        metadata: { userId, planType },
+      });
+
+      res.json({ url: session.url });
+    } catch (error) {
+      console.error("Error creating checkout session:", error);
+      res.status(500).json({ message: "Failed to create checkout session" });
+    }
+  });
+
+  app.post("/api/subscription/create-portal", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+
+      if (!user?.stripeCustomerId) {
+        return res.status(400).json({ message: "No subscription found" });
+      }
+
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+        : process.env.REPLIT_DOMAINS
+          ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
+          : "http://localhost:5000";
+
+      const session = await stripe.billingPortal.sessions.create({
+        customer: user.stripeCustomerId,
+        return_url: `${baseUrl}/subscription`,
+      });
+
+      res.json({ url: session.url });
+    } catch (error) {
+      console.error("Error creating portal session:", error);
+      res.status(500).json({ message: "Failed to create portal session" });
+    }
+  });
+
+  app.post("/api/stripe/webhook", async (req, res) => {
+    const sig = req.headers["stripe-signature"];
+    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    let event;
+    try {
+      if (endpointSecret && sig) {
+        event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+      } else {
+        event = req.body;
+      }
+    } catch (err: any) {
+      console.error("Webhook signature verification failed:", err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const session = event.data.object;
+        const userId = session.metadata?.userId;
+        const planType = session.metadata?.planType;
+        const subscriptionId = session.subscription as string;
+
+        if (userId && subscriptionId) {
+          await storage.updateUser(userId, {
+            stripeSubscriptionId: subscriptionId,
+            subscriptionTier: planType === "annual" ? "annual" : "monthly",
+          });
+        }
+        break;
+      }
+
+      case "customer.subscription.updated":
+      case "customer.subscription.deleted": {
+        const subscription = event.data.object;
+        const customerId = subscription.customer as string;
+
+        // Find user by customer ID
+        const customers = await stripe.customers.retrieve(customerId);
+        const userId = (customers as any).metadata?.userId;
+
+        if (userId) {
+          const isActive = subscription.status === "active" || subscription.status === "trialing";
+          if (isActive) {
+            // Get the full subscription with expanded price data to determine tier
+            let priceId = subscription.items?.data?.[0]?.price?.id;
+            
+            // If price data is not expanded, fetch the subscription directly
+            if (!priceId) {
+              try {
+                const fullSubscription = await stripe.subscriptions.retrieve(subscription.id, {
+                  expand: ["items.data.price"],
+                });
+                priceId = fullSubscription.items?.data?.[0]?.price?.id;
+              } catch (e) {
+                console.error("Failed to retrieve subscription details:", e);
+              }
+            }
+            
+            const monthlyPriceId = getMonthlyPriceId();
+            const annualPriceId = getAnnualPriceId();
+            
+            // Determine tier based on price ID, with fallback to monthly if unknown
+            let tier: "monthly" | "annual" = "monthly";
+            if (priceId === annualPriceId) {
+              tier = "annual";
+            } else if (priceId === monthlyPriceId) {
+              tier = "monthly";
+            }
+            
+            await storage.updateUser(userId, {
+              subscriptionTier: tier,
+              stripeSubscriptionId: subscription.id,
+            });
+          } else {
+            await storage.updateUser(userId, {
+              subscriptionTier: "free",
+              stripeSubscriptionId: null,
+            });
+          }
+        }
+        break;
+      }
+    }
+
+    res.json({ received: true });
+  });
+
+  // Check subscription limits
+  app.get("/api/subscription/can-create-exam", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+
+      // Paid tiers (monthly, annual, or legacy pro) have unlimited simulados
+      if (user?.subscriptionTier === "monthly" || user?.subscriptionTier === "annual" || user?.subscriptionTier === "pro") {
+        return res.json({ canCreate: true, remaining: -1 });
+      }
+
+      // Free tier: limit to 1 simulado
+      const exams = await storage.getExams(userId);
+      const canCreate = exams.length < 1;
+
+      res.json({ 
+        canCreate, 
+        remaining: Math.max(0, 1 - exams.length),
+        limit: 1,
+        used: exams.length,
+      });
+    } catch (error) {
+      console.error("Error checking subscription limits:", error);
+      res.status(500).json({ message: "Failed to check limits" });
     }
   });
 

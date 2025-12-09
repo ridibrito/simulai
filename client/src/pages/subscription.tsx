@@ -9,70 +9,156 @@ import {
   CreditCard,
   Shield,
   ArrowRight,
+  Loader2,
+  ExternalLink,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
+import { useEffect } from "react";
 
-const plans = [
-  {
-    id: "free",
-    name: "Gratuito",
-    price: 0,
-    description: "Para começar seus estudos",
-    features: [
-      "10 simulados por mês",
-      "Banco com 1.000 questões",
-      "Dashboard básico",
-      "Correção automática",
-    ],
-    limitations: [
-      "Sem resumos de IA",
-      "Sem correção de dissertativas",
-      "Estatísticas limitadas",
-    ],
-    cta: "Plano Atual",
-    popular: false,
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    price: 29,
-    description: "Para estudantes dedicados",
-    features: [
-      "Simulados ilimitados",
-      "Banco com 50.000+ questões",
-      "IA Adaptativa completa",
-      "Resumos automáticos de PDFs",
-      "Correção de dissertativas com IA",
-      "Estatísticas avançadas",
-      "Suporte prioritário",
-    ],
-    limitations: [],
-    cta: "Assinar Pro",
-    popular: true,
-  },
-  {
-    id: "enterprise",
-    name: "Enterprise",
-    price: 99,
-    description: "Máxima performance",
-    features: [
-      "Tudo do Pro",
-      "Mentoria com IA avançada",
-      "Cronograma personalizado",
-      "Simulados exclusivos",
-      "Acesso antecipado a novidades",
-      "Suporte 24/7",
-      "API para integrações",
-    ],
-    limitations: [],
-    cta: "Falar com Vendas",
-    popular: false,
-  },
-];
+interface PlanDetails {
+  name: string;
+  price: number;
+  priceFormatted: string;
+  simuladosLimit: number;
+  priceId?: string;
+  savings?: string;
+  features: string[];
+}
+
+interface PlansResponse {
+  free: PlanDetails;
+  monthly: PlanDetails;
+  annual: PlanDetails;
+}
 
 export default function Subscription() {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const [location] = useLocation();
   const currentPlan = user?.subscriptionTier || "free";
+
+  const { data: plans, isLoading: plansLoading } = useQuery<PlansResponse>({
+    queryKey: ["/api/subscription/plans"],
+  });
+
+  const checkoutMutation = useMutation({
+    mutationFn: async (planType: "monthly" | "annual") => {
+      const response = await apiRequest("POST", "/api/subscription/create-checkout", { planType });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Falha ao iniciar o checkout. Tente novamente.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const portalMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/subscription/create-portal");
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Falha ao acessar o portal. Tente novamente.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("success") === "true") {
+      toast({
+        title: "Assinatura ativada",
+        description: "Sua assinatura foi ativada com sucesso!",
+      });
+      window.history.replaceState({}, "", "/subscription");
+    } else if (urlParams.get("canceled") === "true") {
+      toast({
+        title: "Checkout cancelado",
+        description: "O processo de checkout foi cancelado.",
+        variant: "destructive",
+      });
+      window.history.replaceState({}, "", "/subscription");
+    }
+  }, [location, toast]);
+
+  const handleSubscribe = (planType: "monthly" | "annual") => {
+    checkoutMutation.mutate(planType);
+  };
+
+  const handleManageSubscription = () => {
+    portalMutation.mutate();
+  };
+
+  const plansList = [
+    {
+      id: "free",
+      name: "Gratuito",
+      price: "R$ 0",
+      period: "",
+      description: "Para experimentar a plataforma",
+      features: plans?.free.features || [
+        "1 simulado gratuito",
+        "Acesso a questões de exemplo",
+        "Estatísticas básicas",
+      ],
+      popular: false,
+      isCurrent: currentPlan === "free",
+    },
+    {
+      id: "monthly",
+      name: "Mensal",
+      price: "R$ 39",
+      period: "/mês",
+      description: "Acesso completo mensal",
+      features: plans?.monthly.features || [
+        "Simulados ilimitados",
+        "Questões geradas por IA",
+        "Avaliação de redações por IA",
+        "Recomendações personalizadas",
+        "Estatísticas avançadas",
+      ],
+      popular: false,
+      isCurrent: currentPlan === "monthly",
+    },
+    {
+      id: "annual",
+      name: "Anual",
+      price: "R$ 19",
+      period: "/mês",
+      description: "Cobrado anualmente (R$ 228/ano)",
+      savings: "Economize R$ 240/ano",
+      features: plans?.annual.features || [
+        "Simulados ilimitados",
+        "Questões geradas por IA",
+        "Avaliação de redações por IA",
+        "Recomendações personalizadas",
+        "Estatísticas avançadas",
+        "Suporte prioritário",
+      ],
+      popular: true,
+      isCurrent: currentPlan === "annual",
+    },
+  ];
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -92,15 +178,17 @@ export default function Subscription() {
               <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
                 {currentPlan === "free" ? (
                   <Zap className="h-6 w-6 text-primary" />
-                ) : currentPlan === "pro" ? (
+                ) : currentPlan === "monthly" ? (
                   <Sparkles className="h-6 w-6 text-primary" />
                 ) : (
                   <Crown className="h-6 w-6 text-primary" />
                 )}
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-lg font-semibold capitalize">{currentPlan}</h3>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-lg font-semibold capitalize">
+                    {currentPlan === "free" ? "Gratuito" : currentPlan === "monthly" ? "Mensal" : "Anual"}
+                  </h3>
                   <Badge variant="secondary">Plano Atual</Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">
@@ -111,91 +199,122 @@ export default function Subscription() {
               </div>
             </div>
             {currentPlan !== "free" && (
-              <div className="text-right">
-                <p className="text-sm text-muted-foreground">Próxima cobrança</p>
-                <p className="font-semibold">15 de Fevereiro, 2024</p>
-              </div>
+              <Button
+                variant="outline"
+                onClick={handleManageSubscription}
+                disabled={portalMutation.isPending}
+                data-testid="button-manage-subscription"
+              >
+                {portalMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    Gerenciar Assinatura
+                    <ExternalLink className="h-4 w-4 ml-2" />
+                  </>
+                )}
+              </Button>
             )}
           </div>
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        {plans.map((plan) => (
-          <Card
-            key={plan.id}
-            className={`relative ${plan.popular ? "border-primary" : ""}`}
-            data-testid={`card-plan-${plan.id}`}
-          >
-            {plan.popular && (
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                <Badge className="gap-1">
-                  <Sparkles className="h-3 w-3" />
-                  Mais Popular
-                </Badge>
-              </div>
-            )}
-            <CardHeader className="pb-4">
-              <div className="flex items-center gap-2 mb-2">
-                {plan.id === "free" ? (
-                  <Zap className="h-5 w-5 text-muted-foreground" />
-                ) : plan.id === "pro" ? (
-                  <Sparkles className="h-5 w-5 text-primary" />
-                ) : (
-                  <Crown className="h-5 w-5 text-chart-4" />
+      {plansLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-3">
+          {plansList.map((plan) => (
+            <Card
+              key={plan.id}
+              className={`relative ${plan.popular ? "border-primary" : ""}`}
+              data-testid={`card-plan-${plan.id}`}
+            >
+              {plan.popular && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <Badge className="gap-1">
+                    <Sparkles className="h-3 w-3" />
+                    Melhor Valor
+                  </Badge>
+                </div>
+              )}
+              <CardHeader className="pb-4">
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  {plan.id === "free" ? (
+                    <Zap className="h-5 w-5 text-muted-foreground" />
+                  ) : plan.id === "monthly" ? (
+                    <Sparkles className="h-5 w-5 text-primary" />
+                  ) : (
+                    <Crown className="h-5 w-5 text-chart-4" />
+                  )}
+                  <CardTitle className="text-lg">{plan.name}</CardTitle>
+                  {plan.isCurrent && (
+                    <Badge variant="secondary">Atual</Badge>
+                  )}
+                </div>
+                <div className="flex items-baseline gap-1 flex-wrap">
+                  <span className="text-4xl font-bold">{plan.price}</span>
+                  {plan.period && <span className="text-muted-foreground">{plan.period}</span>}
+                </div>
+                <p className="text-sm text-muted-foreground">{plan.description}</p>
+                {plan.savings && (
+                  <Badge variant="secondary" className="mt-2 w-fit">
+                    {plan.savings}
+                  </Badge>
                 )}
-                <CardTitle className="text-lg">{plan.name}</CardTitle>
-              </div>
-              <div className="flex items-baseline gap-1">
-                <span className="text-4xl font-bold">R${plan.price}</span>
-                <span className="text-muted-foreground">/mês</span>
-              </div>
-              <p className="text-sm text-muted-foreground">{plan.description}</p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <ul className="space-y-2">
-                {plan.features.map((feature, index) => (
-                  <li key={index} className="flex items-start gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-chart-2 mt-0.5 flex-shrink-0" />
-                    <span>{feature}</span>
-                  </li>
-                ))}
-                {plan.limitations.map((limitation, index) => (
-                  <li key={index} className="flex items-start gap-2 text-sm text-muted-foreground">
-                    <span className="h-4 w-4 flex items-center justify-center mt-0.5 flex-shrink-0">
-                      -
-                    </span>
-                    <span>{limitation}</span>
-                  </li>
-                ))}
-              </ul>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <ul className="space-y-2">
+                  {plan.features.map((feature, index) => (
+                    <li key={index} className="flex items-start gap-2 text-sm">
+                      <CheckCircle2 className="h-4 w-4 text-chart-2 mt-0.5 flex-shrink-0" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
 
-              <Button
-                variant={plan.id === currentPlan ? "secondary" : plan.popular ? "default" : "outline"}
-                className="w-full gap-2"
-                disabled={plan.id === currentPlan}
-                data-testid={`button-plan-${plan.id}`}
-              >
-                {plan.id === currentPlan ? (
-                  "Plano Atual"
+                {plan.id === "free" ? (
+                  <Button
+                    variant="secondary"
+                    className="w-full"
+                    disabled
+                    data-testid={`button-plan-${plan.id}`}
+                  >
+                    {plan.isCurrent ? "Plano Atual" : "Gratuito"}
+                  </Button>
                 ) : (
-                  <>
-                    {plan.cta}
-                    <ArrowRight className="h-4 w-4" />
-                  </>
+                  <Button
+                    variant={plan.isCurrent ? "secondary" : plan.popular ? "default" : "outline"}
+                    className="w-full gap-2"
+                    disabled={plan.isCurrent || checkoutMutation.isPending}
+                    onClick={() => handleSubscribe(plan.id as "monthly" | "annual")}
+                    data-testid={`button-plan-${plan.id}`}
+                  >
+                    {checkoutMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : plan.isCurrent ? (
+                      "Plano Atual"
+                    ) : (
+                      <>
+                        Assinar {plan.name}
+                        <ArrowRight className="h-4 w-4" />
+                      </>
+                    )}
+                  </Button>
                 )}
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card data-testid="card-payment-method">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
+            <CardTitle className="flex items-center gap-2 text-base flex-wrap">
               <CreditCard className="h-5 w-5" />
-              Método de Pagamento
+              Pagamento
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -203,22 +322,29 @@ export default function Subscription() {
               <div className="text-center py-6">
                 <CreditCard className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 <p className="text-muted-foreground mb-4">
-                  Nenhum método de pagamento cadastrado
+                  Assine um plano para adicionar um método de pagamento
                 </p>
-                <Button variant="outline">Adicionar Cartão</Button>
               </div>
             ) : (
-              <div className="flex items-center justify-between p-4 rounded-lg border">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded bg-muted flex items-center justify-center">
-                    <CreditCard className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="font-medium">•••• •••• •••• 4242</p>
-                    <p className="text-sm text-muted-foreground">Expira 12/2025</p>
-                  </div>
-                </div>
-                <Button variant="ghost" size="sm">Alterar</Button>
+              <div className="text-center py-6">
+                <p className="text-muted-foreground mb-4">
+                  Gerencie seu método de pagamento através do portal Stripe
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={handleManageSubscription}
+                  disabled={portalMutation.isPending}
+                  data-testid="button-manage-payment"
+                >
+                  {portalMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      Gerenciar Pagamento
+                      <ExternalLink className="h-4 w-4 ml-2" />
+                    </>
+                  )}
+                </Button>
               </div>
             )}
           </CardContent>
@@ -236,27 +362,25 @@ export default function Subscription() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 rounded-lg border">
-                  <div>
-                    <p className="font-medium">Plano Pro - Janeiro 2024</p>
-                    <p className="text-sm text-muted-foreground">15/01/2024</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium">R$ 29,00</p>
-                    <Badge variant="secondary" className="text-xs">Pago</Badge>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between p-3 rounded-lg border">
-                  <div>
-                    <p className="font-medium">Plano Pro - Dezembro 2023</p>
-                    <p className="text-sm text-muted-foreground">15/12/2023</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium">R$ 29,00</p>
-                    <Badge variant="secondary" className="text-xs">Pago</Badge>
-                  </div>
-                </div>
+              <div className="text-center py-6">
+                <p className="text-muted-foreground mb-4">
+                  Acesse o portal Stripe para ver seu histórico de cobranças
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={handleManageSubscription}
+                  disabled={portalMutation.isPending}
+                  data-testid="button-billing-history"
+                >
+                  {portalMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      Ver Histórico
+                      <ExternalLink className="h-4 w-4 ml-2" />
+                    </>
+                  )}
+                </Button>
               </div>
             )}
           </CardContent>
