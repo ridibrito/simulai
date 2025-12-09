@@ -1,8 +1,7 @@
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +26,16 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
-import { Camera, Save, User } from "lucide-react";
+import { Camera, Save, User, Loader2 } from "lucide-react";
+
+interface UserStats {
+  totalExams: number;
+  completedExams: number;
+  averageScore: number;
+  totalQuestions: number;
+  correctAnswers: number;
+  totalTimeSpent: number;
+}
 
 const profileSchema = z.object({
   firstName: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
@@ -56,6 +64,10 @@ export default function Profile() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const { data: stats, isLoading: isLoadingStats } = useQuery<UserStats>({
+    queryKey: ["/api/stats"],
+  });
 
   const form = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -276,20 +288,34 @@ export default function Profile() {
           <CardTitle className="text-base">Estatísticas da Conta</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="p-4 rounded-lg border text-center">
-              <div className="text-2xl font-bold text-primary">24</div>
-              <div className="text-sm text-muted-foreground">Simulados Realizados</div>
+          {isLoadingStats ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-            <div className="p-4 rounded-lg border text-center">
-              <div className="text-2xl font-bold text-chart-2">78%</div>
-              <div className="text-sm text-muted-foreground">Taxa de Acertos</div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="p-4 rounded-lg border text-center">
+                <div className="text-2xl font-bold text-primary" data-testid="stat-exams-count">
+                  {stats?.completedExams ?? 0}
+                </div>
+                <div className="text-sm text-muted-foreground">Simulados Realizados</div>
+              </div>
+              <div className="p-4 rounded-lg border text-center">
+                <div className="text-2xl font-bold text-chart-2" data-testid="stat-accuracy-rate">
+                  {stats && stats.totalQuestions > 0
+                    ? `${Math.round((stats.correctAnswers / stats.totalQuestions) * 100)}%`
+                    : "0%"}
+                </div>
+                <div className="text-sm text-muted-foreground">Taxa de Acertos</div>
+              </div>
+              <div className="p-4 rounded-lg border text-center">
+                <div className="text-2xl font-bold text-chart-3" data-testid="stat-study-time">
+                  {stats ? `${Math.round((stats.totalTimeSpent || 0) / 3600)}h` : "0h"}
+                </div>
+                <div className="text-sm text-muted-foreground">Tempo de Estudo</div>
+              </div>
             </div>
-            <div className="p-4 rounded-lg border text-center">
-              <div className="text-2xl font-bold text-chart-3">42h</div>
-              <div className="text-sm text-muted-foreground">Tempo de Estudo</div>
-            </div>
-          </div>
+          )}
         </CardContent>
       </Card>
     </div>

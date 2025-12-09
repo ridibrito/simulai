@@ -84,6 +84,7 @@ export interface IStorage {
     averageScore: number;
     totalQuestions: number;
     correctAnswers: number;
+    totalTimeSpent: number;
   }>;
 }
 
@@ -349,6 +350,7 @@ export class DatabaseStorage implements IStorage {
     averageScore: number;
     totalQuestions: number;
     correctAnswers: number;
+    totalTimeSpent: number;
   }> {
     const attempts = await db
       .select()
@@ -359,6 +361,7 @@ export class DatabaseStorage implements IStorage {
     const totalScore = completedAttempts.reduce((sum, a) => sum + (a.score || 0), 0);
     const totalCorrect = completedAttempts.reduce((sum, a) => sum + (a.correctCount || 0), 0);
     const totalIncorrect = completedAttempts.reduce((sum, a) => sum + (a.incorrectCount || 0), 0);
+    const totalTimeSpent = attempts.reduce((sum, a) => sum + (a.timeSpent || 0), 0);
 
     return {
       totalExams: attempts.length,
@@ -366,6 +369,7 @@ export class DatabaseStorage implements IStorage {
       averageScore: completedAttempts.length > 0 ? totalScore / completedAttempts.length : 0,
       totalQuestions: totalCorrect + totalIncorrect,
       correctAnswers: totalCorrect,
+      totalTimeSpent,
     };
   }
 }
