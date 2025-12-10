@@ -47,7 +47,8 @@ export async function POST(
             return NextResponse.json({ message: 'Tentativa não encontrada' }, { status: 404 })
         }
 
-        const attemptData = attempt as any
+        const attemptData = attempt as any // Mantendo 'as any' para joins complexos que o TS pode não inferir profundamente ainda, mas removendo a supressão de erro nos updates/inserts
+
 
         if (attemptData.status !== 'in_progress') {
             return NextResponse.json({ message: 'Tentativa já finalizada' }, { status: 400 })
@@ -104,7 +105,6 @@ export async function POST(
         if (answersToInsert.length > 0) {
             const { error: insertError } = await supabase
                 .from('question_answers')
-                // @ts-expect-error - Supabase types not properly inferred
                 .insert(answersToInsert)
 
             if (insertError) {
@@ -119,7 +119,6 @@ export async function POST(
         // Update attempt
         const { error: updateError } = await supabase
             .from('exam_attempts')
-            // @ts-expect-error - Supabase types not properly inferred
             .update({
                 status: 'completed',
                 score: Math.round(score * 100) / 100,

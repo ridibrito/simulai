@@ -38,7 +38,7 @@ export async function POST(request: Request) {
             .eq('id', user.id)
             .single()
 
-        let customerId = (profile as any)?.stripe_customer_id
+        let customerId = profile?.stripe_customer_id
 
         if (!customerId) {
             const customer = await stripe.customers.create({
@@ -52,7 +52,6 @@ export async function POST(request: Request) {
             // Save customer ID
             await supabase
                 .from('users')
-                // @ts-expect-error - Supabase types not properly inferred
                 .update({ stripe_customer_id: customerId })
                 .eq('id', user.id)
         }

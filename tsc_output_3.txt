@@ -1,0 +1,11 @@
+src/app/api/attempts/route.ts(35,13): error TS2578: Unused '@ts-expect-error' directive.
+src/app/api/exams/[id]/route.ts(138,13): error TS2578: Unused '@ts-expect-error' directive.
+src/app/api/exams/route.ts(65,13): error TS2578: Unused '@ts-expect-error' directive.
+src/app/api/materials/route.ts(44,13): error TS2578: Unused '@ts-expect-error' directive.
+src/app/api/materials/route.ts(67,21): error TS2578: Unused '@ts-expect-error' directive.
+src/app/api/questions/generate/route.ts(101,13): error TS2578: Unused '@ts-expect-error' directive.
+src/app/api/questions/generate/route.ts(121,13): error TS2578: Unused '@ts-expect-error' directive.
+src/app/api/questions/generate/route.ts(132,13): error TS2578: Unused '@ts-expect-error' directive.
+src/app/api/recommendations/[id]/read/route.ts(20,13): error TS2578: Unused '@ts-expect-error' directive.
+src/app/api/recommendations/generate/route.ts(67,17): error TS2578: Unused '@ts-expect-error' directive.
+src/app/api/recommendations/generate/route.ts(100,13): error TS2578: Unused '@ts-expect-error' directive.

@@ -18,7 +18,7 @@ export async function GET() {
 
         if (error) throw error
 
-        return NextResponse.json((exams || []) as any[])
+        return NextResponse.json(exams)
     } catch (error) {
         console.error('Error fetching exams:', error)
         return NextResponse.json({ message: 'Failed to fetch exams' }, { status: 500 })
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
             .eq('id', user.id)
             .single()
 
-        const isPaidTier = (userProfile as any)?.subscription_tier !== 'free'
+        const isPaidTier = userProfile?.subscription_tier !== 'free'
 
         if (!isPaidTier) {
             // Verificar limite de simulados
@@ -62,7 +62,6 @@ export async function POST(request: Request) {
 
         const { data: exam, error } = await supabase
             .from('exams')
-            // @ts-expect-error - Supabase types not properly inferred
             .insert({
                 user_id: user.id,
                 title: body.title,

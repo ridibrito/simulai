@@ -32,7 +32,6 @@ export async function POST(request: Request) {
         // Create attempt
         const { data: attempt, error: attemptError } = await supabase
             .from('exam_attempts')
-            // @ts-expect-error - Supabase types not properly inferred
             .insert({
                 user_id: user.id,
                 exam_id: exam_id,
@@ -76,7 +75,7 @@ export async function GET() {
 
         if (error) throw error
 
-        return NextResponse.json(attempts as any[])
+        return NextResponse.json(attempts)
     } catch (error) {
         console.error('Error fetching attempts:', error)
         return NextResponse.json({ message: 'Failed to fetch attempts' }, { status: 500 })

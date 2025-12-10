@@ -19,7 +19,7 @@ export async function GET() {
 
         if (error) throw error
 
-        return NextResponse.json(materials as any[])
+        return NextResponse.json(materials)
     } catch (error) {
         console.error('Error fetching materials:', error)
         return NextResponse.json({ message: 'Failed to fetch materials' }, { status: 500 })
@@ -41,7 +41,6 @@ export async function POST(request: Request) {
 
         const { data: material, error } = await supabase
             .from('materials')
-            // @ts-expect-error - Supabase types not properly inferred
             .insert({
                 user_id: user.id,
                 title: body.title,
@@ -54,28 +53,26 @@ export async function POST(request: Request) {
 
         if (error) throw error
 
-        const materialData = material as any
-
         // Trigger AI summarization in background (or await if fast enough)
-        if (materialData?.content) {
+        if (material?.content) {
             try {
-                const summary = await summarizeMaterial(materialData.content, materialData.title)
+                const summary = await summarizeMaterial(material.content, material.title)
 
                 // Update with summary
                 await supabase
                     .from('materials')
-                    // @ts-expect-error - Supabase types not properly inferred
                     .update({ summary })
-                    .eq('id', materialData.id)
+                    .eq('id', material.id)
 
-                materialData.summary = summary
+                // Return updated material (locally patched since we just updated DB)
+                return NextResponse.json({ ...material, summary })
             } catch (aiError) {
                 console.error('Error generating summary:', aiError)
                 // Don't fail the request if AI fails
             }
         }
 
-        return NextResponse.json(materialData)
+        return NextResponse.json(material)
     } catch (error) {
         console.error('Error creating material:', error)
         return NextResponse.json({ message: 'Failed to create material' }, { status: 500 })
