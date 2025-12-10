@@ -10,7 +10,6 @@ export async function GET() {
     }
 
     try {
-        // Buscar dados do perfil do usuário
         const { data: profile, error } = await supabase
             .from('users')
             .select('*')
@@ -19,36 +18,12 @@ export async function GET() {
 
         if (error) throw error
 
-        return NextResponse.json(profile)
+        return NextResponse.json({
+            ...profile,
+            email: user.email,
+        })
     } catch (error) {
-        console.error('Error fetching user:', error)
-        return NextResponse.json({ message: 'Failed to fetch user' }, { status: 500 })
-    }
-}
-
-export async function PATCH(request: Request) {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-        return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
-    }
-
-    try {
-        const { study_area, target_exam, study_goal } = await request.json()
-
-        const { data, error } = await supabase
-            .from('users')
-            .update({ study_area, target_exam, study_goal })
-            .eq('id', user.id)
-            .select()
-            .single()
-
-        if (error) throw error
-
-        return NextResponse.json(data)
-    } catch (error) {
-        console.error('Error updating user:', error)
-        return NextResponse.json({ message: 'Failed to update user' }, { status: 500 })
+        console.error('Error fetching user profile:', error)
+        return NextResponse.json({ message: 'Erro ao buscar perfil' }, { status: 500 })
     }
 }
