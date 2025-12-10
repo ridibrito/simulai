@@ -12,7 +12,7 @@ export async function GET() {
 
         if (error) throw error
 
-        return NextResponse.json(subjects)
+        return NextResponse.json(subjects as any[])
     } catch (error) {
         console.error('Error fetching subjects:', error)
         return NextResponse.json({ message: 'Failed to fetch subjects' }, { status: 500 })

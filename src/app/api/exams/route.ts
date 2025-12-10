@@ -18,7 +18,7 @@ export async function GET() {
 
         if (error) throw error
 
-        return NextResponse.json(exams || [])
+        return NextResponse.json((exams || []) as any[])
     } catch (error) {
         console.error('Error fetching exams:', error)
         return NextResponse.json({ message: 'Failed to fetch exams' }, { status: 500 })

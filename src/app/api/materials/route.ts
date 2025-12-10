@@ -19,7 +19,7 @@ export async function GET() {
 
         if (error) throw error
 
-        return NextResponse.json(materials)
+        return NextResponse.json(materials as any[])
     } catch (error) {
         console.error('Error fetching materials:', error)
         return NextResponse.json({ message: 'Failed to fetch materials' }, { status: 500 })

@@ -94,7 +94,7 @@ export async function GET(
         const examData = exam as any
         examData.exam_questions?.sort((a: any, b: any) => a.order_index - b.order_index)
 
-        return NextResponse.json(examData)
+        return NextResponse.json(examData as object)
     } catch (error) {
         console.error('Error fetching exam:', error)
         return NextResponse.json({ message: 'Erro ao buscar simulado' }, { status: 500 })
