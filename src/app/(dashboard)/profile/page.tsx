@@ -150,7 +150,6 @@ export default function ProfilePage() {
 
             const { error: dbError } = await supabase
                 .from('users')
-                // @ts-expect-error - Supabase client typings not properly inferred
                 .update(updateData)
                 .eq('id', user.id);
 

@@ -3,7 +3,9 @@ import { NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe'
 import Stripe from 'stripe'
 
-const supabaseAdmin = createClient(
+import { Database } from '@/types/database.types'
+
+const supabaseAdmin = createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
@@ -69,16 +71,15 @@ export async function POST(request: Request) {
                     .single()
 
                 if (user) {
-                    const userData = user as any
                     await supabaseAdmin
                         .from('users')
                         .update({
                             subscription_status: subscription.status === 'active' ? 'active' : 'inactive',
                             subscription_current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
                         })
-                        .eq('id', userData.id)
+                        .eq('id', user.id)
 
-                    console.log(`Subscription updated for user ${userData.id}`)
+                    console.log(`Subscription updated for user ${user.id}`)
                 }
                 break
             }
@@ -94,7 +95,6 @@ export async function POST(request: Request) {
                     .single()
 
                 if (user) {
-                    const userData = user as any
                     await supabaseAdmin
                         .from('users')
                         .update({
@@ -103,9 +103,9 @@ export async function POST(request: Request) {
                             stripe_subscription_id: null,
                             subscription_current_period_end: null,
                         })
-                        .eq('id', userData.id)
+                        .eq('id', user.id)
 
-                    console.log(`Subscription canceled for user ${userData.id}`)
+                    console.log(`Subscription canceled for user ${user.id}`)
                 }
                 break
             }
@@ -121,15 +121,14 @@ export async function POST(request: Request) {
                     .single()
 
                 if (user) {
-                    const userData = user as any
                     await supabaseAdmin
                         .from('users')
                         .update({
                             subscription_status: 'past_due',
                         })
-                        .eq('id', userData.id)
+                        .eq('id', user.id)
 
-                    console.log(`Payment failed for user ${userData.id}`)
+                    console.log(`Payment failed for user ${user.id}`)
                 }
                 break
             }

@@ -17,7 +17,6 @@ export async function PATCH(
     try {
         const { error } = await supabase
             .from('ai_recommendations')
-            // @ts-expect-error - Supabase types not properly inferred
             .update({ is_read: true })
             .eq('id', id)
             .eq('user_id', user.id)

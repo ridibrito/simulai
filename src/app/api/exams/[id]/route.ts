@@ -26,7 +26,7 @@ export async function DELETE(
             return NextResponse.json({ message: 'Simulado não encontrado' }, { status: 404 })
         }
 
-        if ((exam as any).user_id !== user.id) {
+        if (exam.user_id !== user.id) {
             return NextResponse.json({ message: 'Acesso negado' }, { status: 403 })
         }
 
@@ -128,14 +128,13 @@ export async function PATCH(
             return NextResponse.json({ message: 'Simulado não encontrado' }, { status: 404 })
         }
 
-        if ((exam as any).user_id !== user.id) {
+        if (exam.user_id !== user.id) {
             return NextResponse.json({ message: 'Acesso negado' }, { status: 403 })
         }
 
         // Update the exam
         const { data: updatedExam, error: updateError } = await supabase
             .from('exams')
-            // @ts-expect-error - Supabase types not properly inferred
             .update({
                 title: body.title,
                 description: body.description,
