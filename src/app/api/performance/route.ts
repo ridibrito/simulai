@@ -22,7 +22,7 @@ export async function GET() {
 
         if (error) throw error
 
-        return NextResponse.json(performance)
+        return NextResponse.json(performance as any[])
     } catch (error) {
         console.error('Error fetching performance:', error)
         return NextResponse.json({ message: 'Failed to fetch performance' }, { status: 500 })

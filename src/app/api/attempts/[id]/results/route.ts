@@ -67,7 +67,7 @@ export async function GET(
 
         return NextResponse.json({
             ...(attempt as object),
-            answers: answers || [],
+            answers: (answers || []) as any[],
         })
     } catch (error) {
         console.error('Error fetching attempt results:', error)

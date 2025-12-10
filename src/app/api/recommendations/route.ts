@@ -19,7 +19,7 @@ export async function GET() {
 
         if (error) throw error
 
-        return NextResponse.json(recommendations)
+        return NextResponse.json(recommendations as any[])
     } catch (error) {
         console.error('Error fetching recommendations:', error)
         return NextResponse.json({ message: 'Failed to fetch recommendations' }, { status: 500 })

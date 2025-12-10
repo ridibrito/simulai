@@ -76,7 +76,7 @@ export async function GET() {
 
         if (error) throw error
 
-        return NextResponse.json(attempts)
+        return NextResponse.json(attempts as any[])
     } catch (error) {
         console.error('Error fetching attempts:', error)
         return NextResponse.json({ message: 'Failed to fetch attempts' }, { status: 500 })
