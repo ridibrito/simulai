@@ -45,7 +45,6 @@ export async function POST(request: Request) {
 
                     await supabaseAdmin
                         .from('users')
-                        // @ts-expect-error - Supabase types not properly inferred
                         .update({
                             subscription_tier: planId || 'monthly',
                             subscription_status: 'active',
@@ -73,7 +72,6 @@ export async function POST(request: Request) {
                     const userData = user as any
                     await supabaseAdmin
                         .from('users')
-                        // @ts-expect-error - Supabase types not properly inferred
                         .update({
                             subscription_status: subscription.status === 'active' ? 'active' : 'inactive',
                             subscription_current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
@@ -99,7 +97,6 @@ export async function POST(request: Request) {
                     const userData = user as any
                     await supabaseAdmin
                         .from('users')
-                        // @ts-expect-error - Supabase types not properly inferred
                         .update({
                             subscription_tier: 'free',
                             subscription_status: 'inactive',
@@ -127,7 +124,6 @@ export async function POST(request: Request) {
                     const userData = user as any
                     await supabaseAdmin
                         .from('users')
-                        // @ts-expect-error - Supabase types not properly inferred
                         .update({
                             subscription_status: 'past_due',
                         })
