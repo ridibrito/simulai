@@ -41,6 +41,7 @@ export async function POST(request: Request) {
 
         const { data: material, error } = await supabase
             .from('materials')
+            // @ts-expect-error - Supabase types not properly inferred
             .insert({
                 user_id: user.id,
                 title: body.title,
@@ -53,25 +54,28 @@ export async function POST(request: Request) {
 
         if (error) throw error
 
+        const materialData = material as any
+
         // Trigger AI summarization in background (or await if fast enough)
-        if (material.content) {
+        if (materialData?.content) {
             try {
-                const summary = await summarizeMaterial(material.content, material.title)
+                const summary = await summarizeMaterial(materialData.content, materialData.title)
 
                 // Update with summary
                 await supabase
                     .from('materials')
+                    // @ts-expect-error - Supabase types not properly inferred
                     .update({ summary })
-                    .eq('id', material.id)
+                    .eq('id', materialData.id)
 
-                material.summary = summary
+                materialData.summary = summary
             } catch (aiError) {
                 console.error('Error generating summary:', aiError)
                 // Don't fail the request if AI fails
             }
         }
 
-        return NextResponse.json(material)
+        return NextResponse.json(materialData)
     } catch (error) {
         console.error('Error creating material:', error)
         return NextResponse.json({ message: 'Failed to create material' }, { status: 500 })

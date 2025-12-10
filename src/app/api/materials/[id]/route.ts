@@ -26,7 +26,7 @@ export async function DELETE(
             return NextResponse.json({ message: 'Material não encontrado' }, { status: 404 })
         }
 
-        if (material.user_id !== user.id) {
+        if ((material as any).user_id !== user.id) {
             return NextResponse.json({ message: 'Acesso negado' }, { status: 403 })
         }
 

@@ -26,7 +26,7 @@ export async function DELETE(
             return NextResponse.json({ message: 'Simulado não encontrado' }, { status: 404 })
         }
 
-        if (exam.user_id !== user.id) {
+        if ((exam as any).user_id !== user.id) {
             return NextResponse.json({ message: 'Acesso negado' }, { status: 403 })
         }
 
@@ -91,9 +91,10 @@ export async function GET(
         }
 
         // Sort questions by order_index
-        exam.exam_questions.sort((a: any, b: any) => a.order_index - b.order_index)
+        const examData = exam as any
+        examData.exam_questions?.sort((a: any, b: any) => a.order_index - b.order_index)
 
-        return NextResponse.json(exam)
+        return NextResponse.json(examData)
     } catch (error) {
         console.error('Error fetching exam:', error)
         return NextResponse.json({ message: 'Erro ao buscar simulado' }, { status: 500 })
@@ -127,13 +128,14 @@ export async function PATCH(
             return NextResponse.json({ message: 'Simulado não encontrado' }, { status: 404 })
         }
 
-        if (exam.user_id !== user.id) {
+        if ((exam as any).user_id !== user.id) {
             return NextResponse.json({ message: 'Acesso negado' }, { status: 403 })
         }
 
         // Update the exam
         const { data: updatedExam, error: updateError } = await supabase
             .from('exams')
+            // @ts-expect-error - Supabase types not properly inferred
             .update({
                 title: body.title,
                 description: body.description,

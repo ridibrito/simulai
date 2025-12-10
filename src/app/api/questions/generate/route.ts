@@ -36,7 +36,8 @@ export async function POST(request: Request) {
             .select('id, name')
             .in('id', subjectIds)
 
-        const subjectNames = subjects?.map(s => s.name).join(', ') || 'Geral'
+        const subjectsData = (subjects || []) as any[]
+        const subjectNames = subjectsData.map(s => s.name).join(', ') || 'Geral'
 
         // Build content for AI
         let content = `Gere questões para as seguintes disciplinas: ${subjectNames}.`
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
         const allQuestions: any[] = []
 
         for (const subjectId of subjectIds) {
-            const subject = subjects?.find(s => s.id === subjectId)
+            const subject = subjectsData.find(s => s.id === subjectId)
             const subjectName = subject?.name || 'Geral'
 
             // Determine actual difficulty per question
@@ -97,6 +98,7 @@ export async function POST(request: Request) {
 
         const { data: insertedQuestions, error: insertError } = await supabase
             .from('questions')
+            // @ts-expect-error - Supabase types not properly inferred
             .insert(questionsToInsert)
             .select('id')
 
@@ -105,8 +107,10 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: 'Erro ao salvar questões' }, { status: 500 })
         }
 
+        const insertedQuestionsData = (insertedQuestions || []) as any[]
+
         // Link questions to exam
-        const examQuestionsToInsert = insertedQuestions.map((q, index) => ({
+        const examQuestionsToInsert = insertedQuestionsData.map((q, index) => ({
             exam_id: examId,
             question_id: q.id,
             order_index: index + 1,
@@ -114,6 +118,7 @@ export async function POST(request: Request) {
 
         const { error: linkError } = await supabase
             .from('exam_questions')
+            // @ts-expect-error - Supabase types not properly inferred
             .insert(examQuestionsToInsert)
 
         if (linkError) {
@@ -124,12 +129,13 @@ export async function POST(request: Request) {
         // Update exam total_questions
         await supabase
             .from('exams')
-            .update({ total_questions: insertedQuestions.length })
+            // @ts-expect-error - Supabase types not properly inferred
+            .update({ total_questions: insertedQuestionsData.length })
             .eq('id', examId)
 
         return NextResponse.json({
             success: true,
-            questionsGenerated: insertedQuestions.length,
+            questionsGenerated: insertedQuestionsData.length,
             examId,
         })
     } catch (error) {

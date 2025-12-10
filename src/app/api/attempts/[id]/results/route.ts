@@ -66,7 +66,7 @@ export async function GET(
         }
 
         return NextResponse.json({
-            ...attempt,
+            ...(attempt as object),
             answers: answers || [],
         })
     } catch (error) {

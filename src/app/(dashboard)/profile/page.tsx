@@ -30,6 +30,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
+import type { Database } from "@/types/database.types";
 import {
     User,
     Mail,
@@ -41,6 +42,9 @@ import {
     Shield,
     Camera,
 } from "lucide-react";
+
+type UsersRow = Database['public']['Tables']['users']['Row'];
+type UsersUpdate = Database['public']['Tables']['users']['Update'];
 
 const profileFormSchema = z.object({
     first_name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(50),
@@ -99,13 +103,15 @@ export default function ProfilePage() {
             if (!user) return;
 
             try {
-                const { data: profile, error } = await supabase
+                const { data, error } = await supabase
                     .from('users')
-                    .select('*')
+                    .select('id, first_name, last_name, study_area, target_exam, study_goal')
                     .eq('id', user.id)
                     .single();
 
                 if (error) throw error;
+
+                const profile = data as UsersRow | null;
 
                 if (profile) {
                     form.reset({
@@ -134,15 +140,18 @@ export default function ProfilePage() {
         setIsSaving(true);
         try {
             // Update profile in database
+            const updateData: UsersUpdate = {
+                first_name: data.first_name,
+                last_name: data.last_name,
+                study_area: data.study_area,
+                target_exam: data.target_exam,
+                study_goal: data.study_goal,
+            };
+
             const { error: dbError } = await supabase
                 .from('users')
-                .update({
-                    first_name: data.first_name,
-                    last_name: data.last_name,
-                    study_area: data.study_area,
-                    target_exam: data.target_exam,
-                    study_goal: data.study_goal,
-                })
+                // @ts-expect-error - Supabase client typings not properly inferred
+                .update(updateData)
                 .eq('id', user.id);
 
             if (dbError) throw dbError;

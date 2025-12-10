@@ -37,11 +37,12 @@ export async function POST() {
             .limit(10)
 
         // Prepare performance data for AI
-        const performanceData = performance?.map(p => ({
+        const performanceArray = (performance || []) as any[]
+        const performanceData = performanceArray.map(p => ({
             subjectName: p.subject?.name || 'Geral',
             averageScore: p.average_score || 0,
             strengthLevel: p.average_score >= 80 ? 'forte' : p.average_score >= 60 ? 'médio' : 'fraco',
-        })) || []
+        }))
 
         // If no performance data, create generic recommendations
         if (performanceData.length === 0) {
@@ -63,6 +64,7 @@ export async function POST() {
             // Insert generic recommendations
             const { error } = await supabase
                 .from('ai_recommendations')
+                // @ts-expect-error - Supabase types not properly inferred
                 .insert(genericRecommendations.map(r => ({
                     user_id: user.id,
                     ...r,
@@ -75,7 +77,7 @@ export async function POST() {
         }
 
         // Generate AI recommendations
-        const targetExam = userProfile?.target_exam || 'Concurso Público'
+        const targetExam = (userProfile as any)?.target_exam || 'Concurso Público'
         const aiRecommendations = await generateStudyRecommendations(performanceData, targetExam)
 
         if (aiRecommendations.length === 0) {
@@ -95,6 +97,7 @@ export async function POST() {
         // Insert recommendations
         const { error } = await supabase
             .from('ai_recommendations')
+            // @ts-expect-error - Supabase types not properly inferred
             .insert(recommendationsToInsert)
 
         if (error) throw error

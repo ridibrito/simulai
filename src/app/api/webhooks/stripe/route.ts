@@ -41,7 +41,7 @@ export async function POST(request: Request) {
                 const planId = session.metadata?.plan_id
 
                 if (userId && session.subscription) {
-                    const subscription = await stripe.subscriptions.retrieve(session.subscription as string)
+                    const subscription = await stripe.subscriptions.retrieve(session.subscription as string) as any
 
                     await supabaseAdmin
                         .from('users')
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
             }
 
             case 'customer.subscription.updated': {
-                const subscription = event.data.object as Stripe.Subscription
+                const subscription = event.data.object as any
                 const customerId = subscription.customer as string
 
                 const { data: user } = await supabaseAdmin
@@ -69,21 +69,22 @@ export async function POST(request: Request) {
                     .single()
 
                 if (user) {
+                    const userData = user as any
                     await supabaseAdmin
                         .from('users')
                         .update({
                             subscription_status: subscription.status === 'active' ? 'active' : 'inactive',
                             subscription_current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
                         })
-                        .eq('id', user.id)
+                        .eq('id', userData.id)
 
-                    console.log(`Subscription updated for user ${user.id}`)
+                    console.log(`Subscription updated for user ${userData.id}`)
                 }
                 break
             }
 
             case 'customer.subscription.deleted': {
-                const subscription = event.data.object as Stripe.Subscription
+                const subscription = event.data.object as any
                 const customerId = subscription.customer as string
 
                 const { data: user } = await supabaseAdmin
@@ -93,6 +94,7 @@ export async function POST(request: Request) {
                     .single()
 
                 if (user) {
+                    const userData = user as any
                     await supabaseAdmin
                         .from('users')
                         .update({
@@ -101,15 +103,15 @@ export async function POST(request: Request) {
                             stripe_subscription_id: null,
                             subscription_current_period_end: null,
                         })
-                        .eq('id', user.id)
+                        .eq('id', userData.id)
 
-                    console.log(`Subscription canceled for user ${user.id}`)
+                    console.log(`Subscription canceled for user ${userData.id}`)
                 }
                 break
             }
 
             case 'invoice.payment_failed': {
-                const invoice = event.data.object as Stripe.Invoice
+                const invoice = event.data.object as any
                 const customerId = invoice.customer as string
 
                 const { data: user } = await supabaseAdmin
@@ -119,14 +121,15 @@ export async function POST(request: Request) {
                     .single()
 
                 if (user) {
+                    const userData = user as any
                     await supabaseAdmin
                         .from('users')
                         .update({
                             subscription_status: 'past_due',
                         })
-                        .eq('id', user.id)
+                        .eq('id', userData.id)
 
-                    console.log(`Payment failed for user ${user.id}`)
+                    console.log(`Payment failed for user ${userData.id}`)
                 }
                 break
             }

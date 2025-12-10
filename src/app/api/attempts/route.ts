@@ -32,6 +32,7 @@ export async function POST(request: Request) {
         // Create attempt
         const { data: attempt, error: attemptError } = await supabase
             .from('exam_attempts')
+            // @ts-expect-error - Supabase types not properly inferred
             .insert({
                 user_id: user.id,
                 exam_id: exam_id,

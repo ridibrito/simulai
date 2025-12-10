@@ -38,12 +38,11 @@ export async function GET() {
         let totalQuestionsAnswered = 0
         let totalCorrect = 0
 
-        if (attempts) {
-            attempts.forEach(a => {
-                totalCorrect += a.correct_count || 0
-                totalQuestionsAnswered += (a.correct_count || 0) + (a.incorrect_count || 0)
-            })
-        }
+        const attemptsData = (attempts || []) as any[]
+        attemptsData.forEach(a => {
+            totalCorrect += a.correct_count || 0
+            totalQuestionsAnswered += (a.correct_count || 0) + (a.incorrect_count || 0)
+        })
 
         const accuracy = totalQuestionsAnswered > 0
             ? Math.round((totalCorrect / totalQuestionsAnswered) * 100)

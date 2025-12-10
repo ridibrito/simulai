@@ -22,14 +22,16 @@ export async function POST() {
             .eq('id', user.id)
             .single()
 
-        if (!profile?.stripe_customer_id) {
+        const profileData = profile as any
+
+        if (!profileData?.stripe_customer_id) {
             return NextResponse.json({ message: 'Nenhuma assinatura encontrada' }, { status: 404 })
         }
 
         const origin = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
         const session = await stripe.billingPortal.sessions.create({
-            customer: profile.stripe_customer_id,
+            customer: profileData.stripe_customer_id,
             return_url: `${origin}/subscription`,
         })
 

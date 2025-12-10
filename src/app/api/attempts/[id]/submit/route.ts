@@ -47,11 +47,13 @@ export async function POST(
             return NextResponse.json({ message: 'Tentativa não encontrada' }, { status: 404 })
         }
 
-        if (attempt.status !== 'in_progress') {
+        const attemptData = attempt as any
+
+        if (attemptData.status !== 'in_progress') {
             return NextResponse.json({ message: 'Tentativa já finalizada' }, { status: 400 })
         }
 
-        const questions = attempt.exam.exam_questions.map((eq: any) => eq.question)
+        const questions = attemptData.exam?.exam_questions?.map((eq: any) => eq.question) || []
         let correctCount = 0
         let incorrectCount = 0
         const answersToInsert: any[] = []
@@ -102,6 +104,7 @@ export async function POST(
         if (answersToInsert.length > 0) {
             const { error: insertError } = await supabase
                 .from('question_answers')
+                // @ts-expect-error - Supabase types not properly inferred
                 .insert(answersToInsert)
 
             if (insertError) {
@@ -116,6 +119,7 @@ export async function POST(
         // Update attempt
         const { error: updateError } = await supabase
             .from('exam_attempts')
+            // @ts-expect-error - Supabase types not properly inferred
             .update({
                 status: 'completed',
                 score: Math.round(score * 100) / 100,

@@ -19,7 +19,7 @@ export async function GET() {
         if (error) throw error
 
         return NextResponse.json({
-            ...profile,
+            ...(profile as object),
             email: user.email,
         })
     } catch (error) {
